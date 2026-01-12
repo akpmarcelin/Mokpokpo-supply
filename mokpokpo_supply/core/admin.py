@@ -6,22 +6,30 @@ from .models import (
     Livraison, LigneLivraison, PrevisionDemande
 )
 
-# --------------------
-# ROLE
-# --------------------
+# -----------------------
+# Admin pour Role
+# -----------------------
 @admin.register(Role)
 class RoleAdmin(admin.ModelAdmin):
-    list_display = ('id', 'nom')
+    list_display = ('nom',)
+    search_fields = ('nom',)
 
-# --------------------
-# UTILISATEUR
-# --------------------
+# -----------------------
+# Admin pour Utilisateur
+# -----------------------
 @admin.register(Utilisateur)
 class UtilisateurAdmin(admin.ModelAdmin):
-    list_display = ('username', 'prenoms', 'email', 'role', 'actif')
+    list_display = ('username', 'nom', 'prenom', 'email', 'telephone', 'role', 'actif', 'date_inscription')
     list_filter = ('role', 'actif')
-    search_fields = ('username', 'prenoms', 'email')
+    search_fields = ('username', 'nom', 'prenom', 'email', 'telephone')
+    readonly_fields = ('date_inscription',)
 
+    fieldsets = (
+        (None, {'fields': ('username', 'password')}),
+        ('Informations personnelles', {'fields': ('nom', 'prenom', 'email', 'telephone', 'localisation')}),
+        ('Rôle et statut', {'fields': ('role', 'actif')}),
+        ('Dates importantes', {'fields': ('date_inscription',), 'classes': ('collapse',)}),
+    )
 # --------------------
 # PRODUIT
 # --------------------

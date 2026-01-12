@@ -76,21 +76,18 @@
                 <tr>
                     <td>{{ livraison.numero }}</td>
                     <td>
-                    {% for ligne in livraison.linelivraison_set.all %}
-                        {% if ligne.lot %}
-                            {{ ligne.lot.produit.nom }}
-                        {% else %}
-                            Produit non défini
-                        {% endif %}
-                        <br>
-                    {% endfor %}
+                        {% for ligne in livraison.lignelivraison_set.all %}
+                            {{ ligne.produit.nom }}<br>
+                        {% empty %}
+                            Aucun produit
+                        {% endfor %}
                     </td>
                     <td>
-                            {% for ligne in livraison.lignelivraison_set.all %}
-                                {{ ligne.produit.nom }} : {{ ligne.quantite }} kg<br>
-                            {% empty %}
-                                -
-                            {% endfor %}
+                        {% for ligne in livraison.lignelivraison_set.all %}
+                            {{ ligne.quantite }} kg<br>
+                        {% empty %}
+                            -
+                        {% endfor %}
                     </td>
 
                     <td>{{ livraison.statut }}</td>

@@ -12,6 +12,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.db.models import Q
 from .models import *
 from .forms import *
+from django.contrib.auth import login, logout
+
 
 def index(request):
     return render(request, 'index.html')
@@ -30,7 +32,7 @@ def login_view(request):
         elif role == 'STOCK':
             return redirect('dashboard_stock')
         elif role == 'GERANT':
-            return redirect('dashboard_stock')  # ou un dashboard admin si défini
+            return redirect('dashboard_gerant')
         elif role == 'LIVREUR':
             return redirect('dashboard_livreur')  # à créer plus tard
         else:
@@ -40,19 +42,38 @@ def login_view(request):
 
 def register_grossiste(request):
     if request.method == 'POST':
+        # Ne pas déconnecter l'utilisateur ici, cela pourrait causer des problèmes
         form = UtilisateurCreationForm(request.POST)
         if form.is_valid():
-            # création de l'utilisateur mais pas encore en base
-            user = form.save(commit=False)
-
-            # récupérer ou créer le rôle GROSSISTE
-            role, created = Role.objects.get_or_create(nom='GROSSISTE')
-            user.role = role
-            user.actif = True
-            user.save()  # maintenant c'est en base
-
-            # redirection vers login
-            return redirect('login')
+            try:
+                # Récupérer ou créer le rôle GROSSISTE
+                role, created = Role.objects.get_or_create(nom='GROSSISTE')
+                
+                # Créer l'utilisateur avec commit=False pour pouvoir ajouter des champs supplémentaires
+                user = form.save(commit=False)
+                user.role = role
+                user.is_active = True
+                
+                # S'assurer que le nom d'utilisateur est en minuscules
+                user.username = user.username.lower()
+                
+                # Sauvegarder l'utilisateur
+                user.save()
+                
+                # Connecter l'utilisateur
+                login(request, user)
+                
+                # Rediriger vers le tableau de bord
+                return redirect('dashboard_grossiste')
+                
+            except Exception as e:
+                # En cas d'erreur, ajouter un message d'erreur
+                messages.error(request, f"Une erreur est survenue lors de l'inscription : {str(e)}")
+        else:
+            # Afficher les erreurs de validation
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{form.fields[field].label}: {error}" if field in form.fields else error)
     else:
         form = UtilisateurCreationForm()
 
@@ -193,7 +214,8 @@ def assign_lot_and_livreur(request, livraison_id, ligne_id):
 def dashboard_livreur(request):
     if not request.user.role or request.user.role.nom != "LIVREUR":
         return redirect('index')
-    livraisons = Livraison.objects.filter(livreur=request.user).order_by('-date_livraison')
+    # Récupérer les livraisons avec les informations du grossiste
+    livraisons = Livraison.objects.filter(livreur=request.user).select_related('grossiste').order_by('-date_livraison')
     return render(request, 'dashboard_livreur.html', {'livraisons': livraisons})
 
 @login_required
@@ -249,4 +271,34 @@ def pass_order(request):
         return redirect('dashboard_grossiste')
 
     return redirect('dashboard_grossiste')
+    
+@login_required
+def dashboard_gerant(request):
+    if not request.user.role or request.user.role.nom != "GERANT":
+        return redirect('index')
+
+    # Tous les mouvements de stock
+    mouvements = MouvementStock.objects.all().order_by('-date')
+
+    # Tous les employés (STOCK et LIVREUR)
+    employes = Utilisateur.objects.filter(role__nom__in=['STOCK', 'LIVREUR']).order_by('role', 'nom')
+
+    return render(request, 'dashboard_gerant.html', {
+        'mouvements': mouvements,
+        'employes': employes
+    })
+
+from core.ia.model import StockPredictor
+
+@login_required
+def gerant_predictions(request):
+    if not request.user.role or request.user.role.nom != "GERANT":
+        return redirect('index')
+
+    predictor = StockPredictor()
+    predictions = predictor.predict_from_db()  # récupère directement depuis la base
+
+    return render(request, 'gerant_predictions.html', {'predictions': predictions})
+
+    
 
